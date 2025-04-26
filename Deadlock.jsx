@@ -1,25 +1,35 @@
-// App.jsx
-import { useState } from "react";
+import React, { useState } from 'react';
+import './App.css';
 
-export default function App() {
-  const [numProcesses, setNumProcesses] = useState(0);
-  const [numResources, setNumResources] = useState(0);
-  const [maxNeed, setMaxNeed] = useState([]);
-  const [allocation, setAllocation] = useState([]);
+function App() {
+  const [processes, setProcesses] = useState(0);
+  const [resources, setResources] = useState(0);
+  const [allocated, setAllocated] = useState([]);
+  const [maximum, setMaximum] = useState([]);
   const [available, setAvailable] = useState([]);
   const [safeSequence, setSafeSequence] = useState([]);
+  const [deadlock, setDeadlock] = useState(false);
 
-  const createTables = () => {
-    setMaxNeed(Array.from({ length: numProcesses }, () => Array(numResources).fill(0)));
-    setAllocation(Array.from({ length: numProcesses }, () => Array(numResources).fill(0)));
-    setAvailable(Array(numResources).fill(0));
-    setSafeSequence([]);
+  const handleProcessesChange = (e) => {
+    setProcesses(parseInt(e.target.value) || 0);
   };
 
-  const handleInputChange = (matrix, setMatrix, i, j, value) => {
+  const handleResourcesChange = (e) => {
+    setResources(parseInt(e.target.value) || 0);
+  };
+
+  const initMatrices = () => {
+    setAllocated(Array.from({ length: processes }, () => Array(resources).fill(0)));
+    setMaximum(Array.from({ length: processes }, () => Array(resources).fill(0)));
+    setAvailable(Array(resources).fill(0));
+    setSafeSequence([]);
+    setDeadlock(false);
+  };
+
+  const handleMatrixChange = (matrixSetter, matrix, i, j, value) => {
     const updated = [...matrix];
     updated[i][j] = parseInt(value) || 0;
-    setMatrix(updated);
+    matrixSetter(updated);
   };
 
   const handleAvailableChange = (index, value) => {
@@ -28,131 +38,127 @@ export default function App() {
     setAvailable(updated);
   };
 
-  const bankersAlgorithm = () => {
-    const need = maxNeed.map((row, i) => row.map((max, j) => max - allocation[i][j]));
+  const isSafe = () => {
     const work = [...available];
-    const finish = Array(numProcesses).fill(false);
+    const finish = Array(processes).fill(false);
     const sequence = [];
 
-    let madeProgress;
-
+    let found;
     do {
-      madeProgress = false;
-      for (let i = 0; i < numProcesses; i++) {
-        if (!finish[i] && need[i].every((n, j) => n <= work[j])) {
-          for (let j = 0; j < numResources; j++) {
-            work[j] += allocation[i][j];
+      found = false;
+      for (let i = 0; i < processes; i++) {
+        if (!finish[i]) {
+          let canAllocate = true;
+          for (let j = 0; j < resources; j++) {
+            if (maximum[i][j] - allocated[i][j] > work[j]) {
+              canAllocate = false;
+              break;
+            }
           }
-          finish[i] = true;
-          sequence.push(i);
-          madeProgress = true;
+          if (canAllocate) {
+            for (let k = 0; k < resources; k++) {
+              work[k] += allocated[i][k];
+            }
+            finish[i] = true;
+            sequence.push(`P${i}`);
+            found = true;
+          }
         }
       }
-    } while (madeProgress);
+    } while (found);
 
     if (finish.every(f => f)) {
       setSafeSequence(sequence);
+      setDeadlock(false);
     } else {
-      setSafeSequence(null);
+      setSafeSequence([]);
+      setDeadlock(true);
     }
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6 text-center">Deadlock Prevention (Banker's Algorithm)</h1>
+    <div className="container">
+      <h1>🛡️ Deadlock Prevention Simulator</h1>
 
-      <div className="flex gap-4 mb-4">
+      <div className="input-section">
         <input
           type="number"
-          placeholder="Number of Processes"
-          value={numProcesses}
-          onChange={(e) => setNumProcesses(parseInt(e.target.value))}
-          className="border p-2 rounded"
+          placeholder="Processes"
+          onChange={handleProcessesChange}
+          min="1"
         />
         <input
           type="number"
-          placeholder="Number of Resources"
-          value={numResources}
-          onChange={(e) => setNumResources(parseInt(e.target.value))}
-          className="border p-2 rounded"
+          placeholder="Resources"
+          onChange={handleResourcesChange}
+          min="1"
         />
-        <button
-          onClick={createTables}
-          className="bg-blue-500 text-white px-4 py-2 rounded"
-        >
-          Create Tables
-        </button>
+        <button onClick={initMatrices}>Create Matrices</button>
       </div>
 
-      {maxNeed.length > 0 && (
-        <div className="space-y-6">
-          <div>
-            <h2 className="text-xl font-semibold mb-2">Max Need Matrix</h2>
-            {maxNeed.map((row, i) => (
-              <div key={i} className="flex gap-2 mb-2">
-                {row.map((value, j) => (
-                  <input
-                    key={j}
-                    type="number"
-                    value={value}
-                    onChange={(e) => handleInputChange(maxNeed, setMaxNeed, i, j, e.target.value)}
-                    className="border p-1 w-16 rounded"
-                  />
-                ))}
-              </div>
-            ))}
-          </div>
-
-          <div>
-            <h2 className="text-xl font-semibold mb-2">Allocation Matrix</h2>
-            {allocation.map((row, i) => (
-              <div key={i} className="flex gap-2 mb-2">
-                {row.map((value, j) => (
-                  <input
-                    key={j}
-                    type="number"
-                    value={value}
-                    onChange={(e) => handleInputChange(allocation, setAllocation, i, j, e.target.value)}
-                    className="border p-1 w-16 rounded"
-                  />
-                ))}
-              </div>
-            ))}
-          </div>
-
-          <div>
-            <h2 className="text-xl font-semibold mb-2">Available Resources</h2>
-            <div className="flex gap-2">
-              {available.map((value, i) => (
+      {allocated.length > 0 && (
+        <>
+          <h2>Allocated Matrix</h2>
+          {allocated.map((row, i) => (
+            <div key={i}>
+              {row.map((val, j) => (
                 <input
-                  key={i}
+                  key={j}
                   type="number"
-                  value={value}
-                  onChange={(e) => handleAvailableChange(i, e.target.value)}
-                  className="border p-1 w-16 rounded"
+                  value={val}
+                  onChange={(e) => handleMatrixChange(setAllocated, allocated, i, j, e.target.value)}
                 />
               ))}
             </div>
+          ))}
+
+          <h2>Maximum Matrix</h2>
+          {maximum.map((row, i) => (
+            <div key={i}>
+              {row.map((val, j) => (
+                <input
+                  key={j}
+                  type="number"
+                  value={val}
+                  onChange={(e) => handleMatrixChange(setMaximum, maximum, i, j, e.target.value)}
+                />
+              ))}
+            </div>
+          ))}
+
+          <h2>Available Resources</h2>
+          <div>
+            {available.map((val, i) => (
+              <input
+                key={i}
+                type="number"
+                value={val}
+                onChange={(e) => handleAvailableChange(i, e.target.value)}
+              />
+            ))}
           </div>
 
-          <button
-            onClick={bankersAlgorithm}
-            className="bg-green-500 text-white px-6 py-2 rounded"
-          >
-            Check for Deadlock
-          </button>
-
-          <div className="mt-6">
-            {safeSequence ? (
-              <h2 className="text-xl font-bold text-green-700">
-                Safe Sequence: {safeSequence.map(p => `P${p}`).join(" ➔ ")}
-              </h2>
-            ) : safeSequence === null ? (
-              <h2 className="text-xl font-bold text-red-700">Deadlock Detected!</h2>
-            ) : null}
+          <div style={{ marginTop: "20px" }}>
+            <button onClick={isSafe}>Check Safe State</button>
           </div>
-        </div>
+
+          {safeSequence.length > 0 && (
+            <div className="safe">
+              <h3>✅ System is in Safe State!</h3>
+              <p>Safe Sequence: {safeSequence.join(' ➔ ')}</p>
+            </div>
+          )}
+
+          {deadlock && (
+            <div className="deadlock">
+              <h3>⚠️ Deadlock Detected!</h3>
+              <p>No safe sequence possible.</p>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
 }
+
+export default App;
