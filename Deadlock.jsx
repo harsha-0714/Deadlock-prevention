@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import './App.css';
 
+//this is only addition of the new comment line for better understanding
+
 function App() {
   const [processes, setProcesses] = useState(0);
   const [resources, setResources] = useState(0);
